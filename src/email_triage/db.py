@@ -161,13 +161,19 @@ class CategoryStats:
         )
 
 
-def get_stats(session: Session, *, include_dry_runs: bool = False) -> list[CategoryStats]:
+def get_stats(
+    session: Session,
+    *,
+    include_dry_runs: bool = False,
+    since: Optional[datetime] = None,
+) -> list[CategoryStats]:
     """Return per-category counts, average confidence, and draft totals.
 
     Args:
         session: An active SQLAlchemy session.
         include_dry_runs: If False (default), dry-run rows are excluded so
             stats reflect only real pipeline runs.
+        since: If provided, only rows with ``processed_at >= since`` are included.
 
     Returns:
         List of :class:`CategoryStats` sorted by count descending.
@@ -185,6 +191,8 @@ def get_stats(session: Session, *, include_dry_runs: bool = False) -> list[Categ
 
     if not include_dry_runs:
         stmt = stmt.where(TriageLog.dry_run.is_(False))
+    if since is not None:
+        stmt = stmt.where(TriageLog.processed_at >= since)
 
     rows = session.execute(stmt).all()
     return [
@@ -198,12 +206,18 @@ def get_stats(session: Session, *, include_dry_runs: bool = False) -> list[Categ
     ]
 
 
-def get_manual_review_count(session: Session, *, include_dry_runs: bool = False) -> int:
+def get_manual_review_count(
+    session: Session,
+    *,
+    include_dry_runs: bool = False,
+    since: Optional[datetime] = None,
+) -> int:
     """Return the number of messages flagged for manual review.
 
     Args:
         session: An active SQLAlchemy session.
         include_dry_runs: If False (default), dry-run rows are excluded.
+        since: If provided, only rows with ``processed_at >= since`` are counted.
 
     Returns:
         Integer count of ``AI/Manual-Review`` labelled messages.
@@ -215,5 +229,7 @@ def get_manual_review_count(session: Session, *, include_dry_runs: bool = False)
     )
     if not include_dry_runs:
         stmt = stmt.where(TriageLog.dry_run.is_(False))
+    if since is not None:
+        stmt = stmt.where(TriageLog.processed_at >= since)
 
     return session.execute(stmt).scalar_one()
